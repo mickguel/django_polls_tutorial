@@ -1,0 +1,11 @@
+{% extends ".\pruebaformularios\base.html" %}
+{% block content %}
+<h2>Formulario Personas</h2>
+<form action="{% url 'personas:padd' %}" method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  <input type="submit" value="Añadir persona" />
+</form>
+<br />
+Haga click <a href="{% url 'personas:padd' %}">aquí</a> para añadir una persona.
+{% endblock %}
