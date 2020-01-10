@@ -24,4 +24,6 @@ urlpatterns = [
     path('personas/',include('pruebaformularios.urls')),
     path('catalog/', include('catalog.urls')),
     path('admin/', admin.site.urls),
+    #Add Django site authentication urls (for login, logout, password management)
+    path('accounts/', include('django.contrib.auth.urls')),
 ] + static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

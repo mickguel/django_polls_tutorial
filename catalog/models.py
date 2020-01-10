@@ -1,6 +1,9 @@
+import uuid # Requerida para las instancias de libros únicos
+from datetime import date
+
 from django.db import models
 from django.urls import reverse #Used to generate URLs by reversing the URL patterns
-import uuid # Requerida para las instancias de libros únicos
+from django.contrib.auth.models import User
 
 class Genre(models.Model):
     """
@@ -68,26 +71,28 @@ class BookInstance(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, help_text="ID único para este libro particular en toda la biblioteca")
     book = models.ForeignKey('Book', on_delete=models.SET_NULL, null=True)
     imprint = models.CharField(max_length=200)
+    borrower = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     due_back = models.DateField(null=True, blank=True)
-
     LOAN_STATUS = (
         ('m', 'Maintenance'),
         ('o', 'On loan'),
         ('a', 'Available'),
         ('r', 'Reserved'),
     )
-
     status = models.CharField(max_length=1, choices=LOAN_STATUS, blank=True, default='m', help_text='Disponibilidad del libro')
-
     class Meta:
         ordering = ["due_back"]
-
+        permissions = (("can_mark_returned", "Set book as returned"),)
     def __str__(self):
         """
         String para representar el Objeto del Modelo
         """
         return '%s (%s)' % (self.id,self.book.title)
-
+    @property
+    def is_overdue(self):
+        if self.due_back and date.today() > self.due_back:
+            return True
+        return False
 class Author(models.Model):
     """
     Modelo que representa un autor
