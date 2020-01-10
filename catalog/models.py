@@ -59,7 +59,7 @@ class Book(models.Model):
         """
         Devuelve el URL a una instancia particular de Book
         """
-        return reverse('book-detail', args=[str(self.id)])
+        return reverse('catalog:book-detail', args=[str(self.id)])
 
 class BookInstance(models.Model):
     """
@@ -101,7 +101,7 @@ class Author(models.Model):
         """
         Retorna la url para acceder a una instancia particular de un autor.
         """
-        return reverse('author-detail', args=[str(self.id)])
+        return reverse('catalog:author-detail', args=[str(self.id)])
 
     def __str__(self):
         """
