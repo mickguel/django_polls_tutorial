@@ -1,8 +1,16 @@
-from django.shortcuts import render
+import datetime
+
+from django import forms
 from django.views import generic
+from django.views.generic.edit import CreateView, UpdateView, DeleteView
+from django.shortcuts import render, get_object_or_404
+from django.http import HttpResponseRedirect
+from django.urls import reverse, reverse_lazy
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.contrib.auth.decorators import permission_required
 
 from .models import Book, Author, BookInstance, Genre
+from .forms import RenewBookForm
 
 def index(request):
     """
@@ -14,15 +22,12 @@ def index(request):
     # Libros disponibles (status = 'a')
     num_instances_available=BookInstance.objects.filter(status__exact='a').count()
     num_authors=Author.objects.count()  # El 'all()' esta implícito por defecto.
-
     #Addicional - Número de géneros y número libros con la palabra 'la'
     num_genres=Genre.objects.count()
     num_books_with_la=Book.objects.filter(title__icontains='la').count()
-
     # Number of visits to this view, as counted in the session variable.
     num_visits=request.session.get('num_visits', 0)
     request.session['num_visits'] = num_visits+1
-
     # Renderiza la plantilla HTML index.html con los datos en la variable contexto
     return render(
         request,
@@ -31,19 +36,24 @@ def index(request):
             'num_instances_available':num_instances_available,'num_authors':num_authors,
             'num_genres':num_genres,'num_books_with_la':num_books_with_la, 'num_visits':num_visits},
     )
+
 class BookListView(generic.ListView):
     """Generic class-based view for a list of books."""
     model = Book
     paginate_by = 10
+
 class BookDetailView(generic.DetailView):
     model = Book
+
 class AuthorListView(generic.ListView):
     """Generic class-based list view for a list of authors."""
     model = Author
     paginate_by = 10
+
 class AuthorDetailView(generic.DetailView):
     """Generic class-based detail view for an author."""
     model = Author
+
 class LoanedBooksByUserListView(LoginRequiredMixin, generic.ListView):
     """
     Generic class-based view listing books on loan to current user.
@@ -53,6 +63,7 @@ class LoanedBooksByUserListView(LoginRequiredMixin, generic.ListView):
     paginate_by = 10
     def get_queryset(self):
         return BookInstance.objects.filter(borrower=self.request.user).filter(status__exact='o').order_by('due_back')
+
 class LoanedBooksAllListView(PermissionRequiredMixin, generic.ListView):
     """Generic class-based view listing all books on loan. Only visible to users with can_mark_returned permission."""
     model = BookInstance
@@ -62,3 +73,36 @@ class LoanedBooksAllListView(PermissionRequiredMixin, generic.ListView):
 
     def get_queryset(self):
         return BookInstance.objects.filter(status__exact='o').order_by('due_back')
+
+@permission_required('catalog.can_mark_returned')
+def renew_book_librarian(request, pk):
+    book_inst=get_object_or_404(BookInstance, pk = pk)
+    # If this is a POST request then process the Form data
+    if request.method == 'POST':
+        # Create a form instance and populate it with data from the request (binding):
+        form = RenewBookForm(request.POST)
+        # Check if the form is valid:
+        if form.is_valid():
+            # process the data in form.cleaned_data as required (here we just write it to the model due_back field)
+            book_inst.due_back = form.cleaned_data['renewal_date']
+            book_inst.save()
+            # redirect to a new URL:
+            return HttpResponseRedirect(reverse('catalog:all-borrowed') )
+    # If this is a GET (or any other method) create the default form.
+    else:
+        proposed_renewal_date = datetime.date.today() + datetime.timedelta(weeks=3)
+        form = RenewBookForm(initial={'renewal_date': proposed_renewal_date,})
+    return render(request, 'catalog/book_renew_librarian.html', {'form': form, 'bookinst':book_inst})
+
+class AuthorCreate(CreateView):
+    model = Author
+    fields = '__all__'
+    # initial={'date_of_death':'05/01/2018',} #Exemple of initial data
+
+class AuthorUpdate(UpdateView):
+    model = Author
+    fields = ['first_name','last_name','date_of_birth','date_of_death']
+
+class AuthorDelete(DeleteView):
+    model = Author
+    success_url = reverse_lazy('catalog:authors')
